@@ -19,7 +19,11 @@ app.use(express.static(__dirname + "/public"));
 const activeRooms = {};
 
 io.on("connection", (socket) => {
+  console.log(`User connected: ${socket.id}`);
+  
   socket.on("join", (roomId, userId, userName) => {
+    console.log(`User ${userId} joining room ${roomId}`);
+    
     // Join the specified room
     socket.join(roomId);
 
@@ -31,6 +35,8 @@ io.on("connection", (socket) => {
     // Add the user to the room
     activeRooms[roomId].push({ id: userId, name: userName });
 
+     console.log(`User ${userId} joined room ${roomId}`);
+
     // Notify other users in the room about the new user
     socket.broadcast.to(roomId).emit("user-connected", userId);
 
@@ -39,6 +45,8 @@ io.on("connection", (socket) => {
 
     // Handle user disconnection
     socket.on("disconnect", () => {
+      console.log(`User disconnected: ${socket.id}`);
+
       const index = activeRooms[roomId].findIndex(user => user.id === userId);
       if (index !== -1) {
         activeRooms[roomId].splice(index, 1);
