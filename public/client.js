@@ -14,9 +14,9 @@ const socket = io();
 const dis = document.getElementById("video-grid");
 const peer = new Peer(undefined, {
   secure: true,
-  path: "/peerjs",
-  host: "/",
-  port: "443",
+  path: "/peerjs", // Update the path to match your PeerJS server configuration
+  host: "/", // Update the host to match your PeerJS server configuration
+  port: "443", // Update the port to match your PeerJS server configuration
 });
 const myv = document.createElement("video");
 let myVideoStream;
