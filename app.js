@@ -15,36 +15,47 @@ app.use(bodyParser.urlencoded({ extended: true }));
 app.set("view engine", "ejs");
 app.use(express.static(__dirname + "/public"));
 
-const connectedUsers = {};
+// Object to store active rooms and their participants
+const activeRooms = {};
 
 io.on("connection", (socket) => {
-  socket.on("join", (uid, id, name) => {
-    console.log(`${id} joined the room ${uid}`);
-    socket.join(uid);
-    
-    connectedUsers[uid] = connectedUsers[uid] || [];
-    connectedUsers[uid].push(name);
-    
-    socket.broadcast.to(uid).emit("user-connected", id);
-    io.sockets.to(uid).emit("name", connectedUsers[uid]);
-    
+  socket.on("join", (roomId, userId, userName) => {
+    // Join the specified room
+    socket.join(roomId);
+
+    // If the room doesn't exist, create it
+    if (!activeRooms[roomId]) {
+      activeRooms[roomId] = [];
+    }
+
+    // Add the user to the room
+    activeRooms[roomId].push({ id: userId, name: userName });
+
+    // Notify other users in the room about the new user
+    socket.broadcast.to(roomId).emit("user-connected", userId);
+
+    // Update user list for all users in the room
+    io.sockets.to(roomId).emit("name", activeRooms[roomId].map(user => user.name));
+
+    // Handle user disconnection
     socket.on("disconnect", () => {
-      console.log(`${id} left the room ${uid}`);
-      const index = connectedUsers[uid].indexOf(name);
+      const index = activeRooms[roomId].findIndex(user => user.id === userId);
       if (index !== -1) {
-        connectedUsers[uid].splice(index, 1);
-        socket.broadcast.to(uid).emit("user-dis", id);
+        activeRooms[roomId].splice(index, 1);
+        socket.broadcast.to(roomId).emit("user-dis", userId);
+        io.sockets.to(roomId).emit("name", activeRooms[roomId].map(user => user.name));
       }
     });
   });
 
-  socket.on("message", (name, message, uid) => {
-    console.log(`${name}: ${message}`);
-    socket.broadcast.to(uid).emit("receive", name, message);
+  // Handle chat messages
+  socket.on("message", (name, message, roomId) => {
+    socket.broadcast.to(roomId).emit("receive", name, message);
   });
 
-  socket.on("editor_message", (message, uid) => {
-    socket.broadcast.to(uid).emit("text_editor", message);
+  // Handle text editor messages
+  socket.on("editor_message", (message, roomId) => {
+    socket.broadcast.to(roomId).emit("text_editor", message);
   });
 });
 
@@ -71,10 +82,9 @@ app.get("/joinold", (req, res) => {
 });
 
 app.get("/:id", (req, res) => {
-  const uid = req.params.id;
-  console.log(uid);
-  const name = req.query.name;
-  res.render("file", { id: uid, name: name });
+  const roomId = req.params.id;
+  const userName = req.query.name;
+  res.render("file", { id: roomId, name: userName });
 });
 
 server.listen(port, () => {
